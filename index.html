@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rent Management System</title>
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:Arial}
+body{background:#192230;color:#fff;padding:15px}
+.hidden{display:none}
+.container{max-width:1000px;margin:auto}
+
+/* LOGIN */
+.login-box{
+    max-width:350px;
+    margin:80px auto;
+    background:#0b1220;
+    padding:25px;
+    border-radius:10px;
+}
+.login-box input,.login-box button{
+    width:100%;
+    padding:10px;
+    margin-top:10px;
+    border:none;
+    border-radius:6px;
+}
+.login-box input{background:#1f2a44;color:#fff}
+.login-box button{background:#4CAF50;color:#fff}
+
+/* FORM */
+.form-box{
+    background:#0b1220;
+    padding:20px;
+    border-radius:10px;
+    margin-bottom:20px;
+}
+.form-box input,.form-box select,.form-box button{
+    width:100%;
+    padding:10px;
+    margin-top:8px;
+    border:none;
+    border-radius:6px;
+}
+.form-box input,.form-box select{background:#1f2a44;color:#fff}
+.form-box button{background:#4CAF50;color:#fff}
+
+/* TABLE */
+table{
+    width:100%;
+    border-collapse:collapse;
+    background:#0b1220;
+    border-radius:10px;
+    overflow:hidden;
+}
+th,td{
+    padding:10px;
+    text-align:center;
+    border-bottom:1px solid #1f2a44;
+}
+th{background:#1f2a44}
+button.action{padding:5px 8px;font-size:12px}
+
+@media(max-width:600px){
+    th,td{font-size:12px}
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div class="login-box" id="loginBox">
+    <h2 align="center">Admin Login</h2>
+    <input id="username" placeholder="Username">
+    <input id="password" type="password" placeholder="Password">
+    <button onclick="login()">Login</button>
+</div>
+
+<!-- APP -->
+<div class="container hidden" id="app">
+<h1 align="center">Rent Management System</h1>
+
+<div class="form-box">
+    <input id="tenantName" placeholder="ভাড়াটিয়ার নাম">
+    <input type="month" id="month">
+    <input id="rent" type="number" placeholder="মাসিক ভাড়া">
+    <input id="paid" type="number" placeholder="পরিশোধ করা টাকা">
+    <select id="garbage">
+        <option value="0">ময়লার বিল নেই</option>
+        <option value="50">ময়লার বিল ৫০৳</option>
+    </select>
+    <button onclick="saveTenant()">Save</button>
+</div>
+
+<select id="filterMonth" onchange="render()" style="margin-bottom:10px">
+    <option value="">সব মাস</option>
+</select>
+
+<button onclick="exportCSV()">Export Excel</button>
+
+<table>
+<thead>
+<tr>
+    <th>নাম</th>
+    <th>মাস</th>
+    <th>মোট</th>
+    <th>পরিশোধ</th>
+    <th>বাকি</th>
+    <th>Action</th>
+</tr>
+</thead>
+<tbody id="tbody"></tbody>
+</table>
+</div>
+
+<script>
+/* LOGIN */
+function login(){
+    if(username.value === "aminul_islam" && password.value === "aminul@#cv#33"){
+        loginBox.classList.add("hidden")
+        app.classList.remove("hidden")
+    }else{
+        alert("Wrong Login")
+    }
+}
+
+/* DATA */
+let rentData = JSON.parse(localStorage.getItem("rentData")) || []
+let editIndex = -1
+
+function saveTenant(){
+    const tenantName = document.getElementById("tenantName").value
+    const monthVal = month.value
+    const rentVal = Number(rent.value)
+    const paidVal = Number(paid.value)
+    const garbageVal = Number(garbage.value)
+
+    if(!tenantName || !monthVal || !rentVal){
+        alert("সব তথ্য পূরণ করো")
+        return
+    }
+
+    const total = rentVal + garbageVal
+    const due = total - paidVal
+
+    const tenant = {
+        name: tenantName,
+        month: monthVal,
+        rent: rentVal,
+        paid: paidVal,
+        garbage: garbageVal,
+        total: total,
+        due: due
+    }
+
+    if(editIndex > -1){
+        rentData[editIndex] = tenant
+        editIndex = -1
+    }else{
+        rentData.push(tenant)
+    }
+
+    localStorage.setItem("rentData", JSON.stringify(rentData))
+    clearForm()
+    render()
+}
+
+function render(){
+    tbody.innerHTML = ""
+    filterMonth.innerHTML = '<option value="">সব মাস</option>'
+
+    const months = [...new Set(rentData.map(d => d.month))]
+    months.forEach(m => {
+        filterMonth.innerHTML += `<option value="${m}">${m}</option>`
+    })
+
+    rentData
+    .filter(d => !filterMonth.value || d.month === filterMonth.value)
+    .forEach((d, i) => {
+        tbody.innerHTML += `
+        <tr>
+            <td>${d.name}</td>
+            <td>${d.month}</td>
+            <td>৳${d.total}</td>
+            <td>৳${d.paid}</td>
+            <td>৳${d.due < 0 ? 0 : d.due}</td>
+            <td>
+                <button class="action" onclick="editTenant(${i})">Edit</button>
+                <button class="action" onclick="deleteTenant(${i})">Del</button>
+            </td>
+        </tr>`
+    })
+}
+
+function editTenant(i){
+    const d = rentData[i]
+    tenantName.value = d.name
+    month.value = d.month
+    rent.value = d.rent
+    paid.value = d.paid
+    garbage.value = d.garbage
+    editIndex = i
+}
+
+function deleteTenant(i){
+    if(confirm("Delete this record?")){
+        rentData.splice(i,1)
+        localStorage.setItem("rentData", JSON.stringify(rentData))
+        render()
+    }
+}
+
+function clearForm(){
+    tenantName.value = ""
+    month.value = ""
+    rent.value = ""
+    paid.value = ""
+    garbage.value = "0"
+}
+
+function exportCSV(){
+    let csv = "Name,Month,Total,Paid,Due\n"
+    rentData.forEach(d=>{
+        csv += `${d.name},${d.month},${d.total},${d.paid},${d.due}\n`
+    })
+
+    const a = document.createElement("a")
+    a.href = "data:text/csv;charset=utf-8," + encodeURI(csv)
+    a.download = "rent-data.csv"
+    a.click()
+}
+
+render()
+</script>
+
+</body>
+</html>
